@@ -1,0 +1,36 @@
+[1, 2, 3, 4]
+[{0: 0, 1: 1, 3: 3, 4: 4, 5: 5}, {0: 0, 1: 1, 3: 3, 4: 5, 5: 4}]
+no mappings found
+(:action transformation0
+	:parameters (?n0t1 - type1 ?n1t2 - type2 ?n3t2 - type2 ?n4t0 - type0 ?n5t0 - type0 )
+	:precondition (and
+		(link ?n0t1 ?n1t2)
+		(link ?n1t2 ?n0t1)
+		(link ?n0t1 ?n3t2)
+		(link ?n3t2 ?n0t1)
+		(link ?n1t2 ?n4t0)
+		(link ?n4t0 ?n1t2)
+		(link ?n1t2 ?n5t0)
+		(link ?n5t0 ?n1t2)
+)
+	:effect (and
+		(not (link ?n0t1 ?n1t2))
+		(not (link ?n1t2 ?n0t1))
+		(not (link ?n0t1 ?n3t2))
+		(not (link ?n3t2 ?n0t1))
+		(not (link ?n1t2 ?n4t0))
+		(not (link ?n4t0 ?n1t2))
+		(not (link ?n1t2 ?n5t0))
+		(not (link ?n5t0 ?n1t2))
+		(link ?n0t1 ?n3t2)
+		(link ?n3t2 ?n0t1)
+		(link ?n0t1 ?n1t2)
+		(link ?n1t2 ?n0t1)
+		(link ?n0t1 ?n5t0)
+		(link ?n5t0 ?n0t1)
+		(link ?n1t2 ?n4t0)
+		(link ?n4t0 ?n1t2)
+)
+)
+
+
