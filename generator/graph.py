@@ -68,7 +68,7 @@ class GraphTransformation:
                     # print(self.graph_post.edges)
                     pass
 
-    def apply(self, graph: nx.Graph, view = False) -> bool:
+    def apply(self, graph: nx.Graph, view = False, verbose = False) -> bool:
         if view:
             colors = [GLOB_COLORS[x[1]["type"]] for x in graph.nodes.data()]
             sub1 = plt.subplot(121)
@@ -77,10 +77,15 @@ class GraphTransformation:
         gen = nx.isomorphism.GraphMatcher(graph, self.graph_prec, node_match=lambda x, y: x['type'] == y['type'])
 
         maps = []
+        if verbose: print("begin_mapping")
+
         for i, inv_mapping in enumerate(gen.subgraph_monomorphisms_iter()):
             maps.append({v:k for k,v in inv_mapping.items()})
-            if i > 1000:
+            if verbose: print(f"found {i} map")
+            if i > 10:
                 break
+
+        if verbose: print("done mapping")
 
         if not maps:
             print("no mappings found")

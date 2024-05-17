@@ -5,6 +5,7 @@ import typing
 import os
 import sys
 import argparse
+import random
 
 TYPES_DEFAULT = 2
 
@@ -29,6 +30,7 @@ def generate_pddl_domain(actions: typing.List[graph.GraphTransformation], name, 
     for i in range(amount_types):
         out += f"type{i} "
     out += "- node\n\t"
+    out += "node - object\n\t"
     out += ")\n\n"
 
     out += "(:predicates\n\t(link ?n0 - node ?n1 - node)\n\t)\n\n"
@@ -39,6 +41,16 @@ def generate_pddl_domain(actions: typing.List[graph.GraphTransformation], name, 
     out += ")"
     return out
 
+def generate_sample(args):
+    sample = []
+    if args.sample_mode == "random-sequential":
+        start = randomgen.randint(0, args.nodes - args.size - 1)
+        sample = list(range(start, start + args.size))
+    if args.sample_mode == "start-sequential":
+        sample = list(range(args.size))
+    if args.sample_mode == "random":
+        sample = randomgen.sample(list(range(args.nodes)), args.size)
+    return sample
 
 if __name__ == "__main__":
     parser = argparse.ArgumentParser(description="This is a generator for generic graph problems in PDDL. \
@@ -50,12 +62,22 @@ if __name__ == "__main__":
     parser.add_argument('-l', '--length', dest='length', type=int, required=True,
                         help = "Length of the upperbound plan generated for the graph problem.")
 
-    parser.add_argument('-lr', '--length-range', dest='length-range', type=int, default=0,
+    parser.add_argument('-lr', '--length-range', dest='length_range', type=int, default=0,
                         help = "Amount of variance in plan length. Range starts from -length. Actual plan length gets sampled at random.")
 
-    parser.add_argument('--mode', dest='mode', type=str, default="barabasi-albert",
+    parser.add_argument('--mode', dest='mode', type=str, default="barabasi-albert", choices=['barabasi-albert', 'erdos-renyi', 'watts-strogatz', 'internet'],
                         help = "The way to generate each graph. Currently the following are supported:\
                         \n- barabasi-albert (DEFAULT)\n- erdos-renyi\n- watts-strogatz\n- internet")
+
+    parser.add_argument('--action-size', dest='size', type=int, default=4,
+                        help="The amount of arguments to be generated for actions. A larger size means\
+                        the precondition of actions becomes larger and thus stricter.")
+
+    parser.add_argument('--action-add', dest='add_amt', type=int, default=2,
+                        help="The amount of (random) edges an action adds to the given subgraph. When using degree mode this should be at least 2.")
+
+    parser.add_argument('--action-rm', dest='rm_amt', type=int, default=2,
+                        help="The amount of (random) edges an action removes. If no edges can be removed anymore continues to adding.")
 
     parser.add_argument('-t', '--types', dest='types', type=int, default=TYPES_DEFAULT,
                         help = f"Amount of node types to add to the graphs. Default is {TYPES_DEFAULT}")
@@ -69,21 +91,60 @@ if __name__ == "__main__":
     parser.add_argument('-s', '--seed', dest="seed", type=int, default=None,
                         help="Random generation seed")
 
+    parser.add_argument('--name', dest='name', type=str, default=None,
+                        help="The name of the batch. Saves the domain to domain_<name>.pddl and the problems to p-<n>_<name>.pddl")
+
+    parser.add_argument('--num_problems', dest='prb_amt', type=int, default=1,
+                        help="How many problems to generate from a given initial graph. \
+                            More problems means more actions get generated for these problems, so the search will become more difficult.")
+
+    parser.add_argument('--min_diff_actions', dest='mda_amt', type=int, default=1,
+                        help="The minimum amount of different actions needed per problem generated.\
+                            This guarantees that at least <min_diff_action> actions are used in the upperbound plan.\
+                            This does not guarantee there is no plan with less actions, or that there aren't more actions in the upperbound plan.")
+
+    parser.add_argument('--action_sample_mode', dest='sample_mode', choices=['random-sequential', 'start-sequential', 'random', 'random-islands'], default='random-sequential',
+                        help="The way to sample the current graph to generate preconditions for the actions. This can have a big effect on the preconditions of actions depending on graph generation method.")
+
     parser.add_argument('--view', action="store_true", help="DEBUG show intermediate graphs")
+    parser.add_argument('--verbose', action="store_true", help="DEBUG print more")
 
     args = parser.parse_args()
 
-    tg = graph.TypedGraph(args.nodes, p=args.p, k=args.k, t=args.types, mode="barabasi-albert", seed=args.seed)
+    randomgen = random.Random(args.seed)
+    tg = graph.TypedGraph(args.nodes, p=args.p, k=args.k, t=args.types, mode=args.mode, seed=args.seed)
+    # Save the initial graph for adding it to the pddl problems later.
     init = nx.Graph(tg.graph)
-    tr = graph.GraphTransformation(nx.Graph(nx.subgraph(tg.graph, list([1, 10, 15, 19]))), add=4, remove=4, seed=args.seed)
-    if args.view:
-        tr.view()
-    tr.apply(tg.graph, view=args.view)
-    tr.apply(tg.graph, view=args.view)
 
-    file = open("domain.pddl", 'w')
-    file.write(generate_pddl_domain([tr], "test", args.types))
-    file.close()
-    file = open("testproblem.pddl", 'w')
-    file.write(generate_pddl_problem(init, tg.graph, "test1", "test"))
+    name = ""
+    if args.name:
+        name += f"_{args.name}"
+
+    # While loop instead of for loop because we want to be able to control how many times it loops while looping.
+    i = 0
+    length = random.randint(args.length, args.length + args.length_range)
+    actions = []
+    for j in range(args.prb_amt):
+        sample = generate_sample(args)
+        actions.append(graph.GraphTransformation(nx.Graph(nx.subgraph(tg.graph, sample)), add=args.add_amt, remove=args.rm_amt, seed=args.seed))
+        if args.view:
+            actions[-1].view()
+        while(i < args.length):
+            # This applies the action, if it returns false, it didn't apply and we need to create a new action.
+            if (args.length - i < args.mda_amt or not actions[-1].apply(tg.graph, view=args.view, verbose=args.verbose)):
+                sample = generate_sample(args)
+                actions.append(graph.GraphTransformation(nx.Graph(nx.subgraph(tg.graph, sample)), add=args.add_amt, remove=args.rm_amt, seed=args.seed))
+                if args.view:
+                    actions[-1].view()
+                actions[-1].apply(tg.graph, view=args.view, verbose=args.verbose)
+                if not (args.length - i < args.mda_amt):
+                    args.mda_amt -= 1
+            i += 1
+        file = open(f"p-{j + 1}" + name + ".pddl", 'w')
+        file.write(generate_pddl_problem(init, tg.graph, f"{j + 1}", args.name))
+        file.close()
+        tg.graph = nx.Graph(init)
+
+    file = open("domain" + name + ".pddl", 'w')
+    file.write(generate_pddl_domain(actions, args.name, args.types))
     file.close()
