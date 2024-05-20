@@ -41,7 +41,67 @@ def generate_pddl_domain(actions: typing.List[graph.GraphTransformation], name, 
     out += ")"
     return out
 
-def generate_sample(args):
+def generate_connected_sample(args, tg, islands = False):
+    sample = []
+    to_add = args.size - 1
+    start = randomgen.randint(0, args.nodes)
+    sample.append(start)
+
+    len_isl = args.size // args.isl_amt
+    rem = args.size % args.isl_amt
+    isl_start = to_add + 1
+
+    while (to_add > 0):
+        tmp = 0
+        if rem:
+            tmp = 1
+
+        # If this is true, it is time for a new island
+        if (islands and to_add <= (isl_start - len_isl - tmp)):
+            start = randomgen.randint(0, args.nodes)
+            n = 0
+            while start in sample:
+                n += 1
+                start = randomgen.randint(0, args.nodes)
+                if n > 200:
+                    # We probably have the whole graph as a precondition at this point.
+                    return sample
+            sample.append(start)
+            isl_start = to_add
+            to_add -= 1
+            if rem:
+                rem -= 1
+            continue
+
+
+        added = False
+        for j in reversed(range(len(sample))):
+            edges = list(tg.graph.edges(sample[j]))
+            while edges:
+                new = randomgen.choice(edges)
+                if not new[1] in sample:
+                    sample.append(new[1])
+                    added = True
+                    break
+                edges.remove(new)
+            if added:
+                break
+        else:
+            # If this executes, there was no new node to connect anywhere in our list.
+            # We are forced to generate a new starting point.
+            start = randomgen.randint(0, args.nodes)
+            n = 0
+            while start in sample:
+                n += 1
+                start = randomgen.randint(0, args.nodes)
+                if n > 200:
+                    # We probably have the whole graph as a precondition at this point.
+                    return sample
+            sample.append(start)
+        to_add -= 1
+    return sample
+
+def generate_sample(args, tg : graph.TypedGraph):
     sample = []
     if args.sample_mode == "random-sequential":
         start = randomgen.randint(0, args.nodes - args.size - 1)
@@ -50,7 +110,37 @@ def generate_sample(args):
         sample = list(range(args.size))
     if args.sample_mode == "random":
         sample = randomgen.sample(list(range(args.nodes)), args.size)
-    return sample
+    if args.sample_mode == "random-islands":
+        len_isl = args.size // args.isl_amt
+        rem = args.size % args.isl_amt
+        print(len_isl, rem)
+        for _i in range(args.isl_amt):
+            tmp = 0
+            if rem:
+                tmp = 1
+                rem -= 1
+
+            start = randomgen.randint(0, args.nodes - args.size - 1)
+            # Make sure the islands are not overlapping
+            n = 0
+            while (start + len_isl + tmp) in sample:
+                n += 1
+                start = randomgen.randint(0, args.nodes - args.size - 1)
+                if (n > 100):
+                    # Assume it is impossible to add another disconnected island
+                    print("Islands overlapping, action size is too big for disconnected islands.")
+                    break
+
+            isl = list(range(start, start + len_isl + tmp))
+            sample += isl
+
+    if args.sample_mode == "connected":
+        sample = generate_connected_sample(args, tg)
+    if args.sample_mode == "connected-islands":
+        sample = generate_connected_sample(args, tg, islands=True)
+
+    # Remove duplicates before returning (may reduce action precondition size)
+    return list(set(sample))
 
 if __name__ == "__main__":
     parser = argparse.ArgumentParser(description="This is a generator for generic graph problems in PDDL. \
@@ -103,8 +193,11 @@ if __name__ == "__main__":
                             This guarantees that at least <min_diff_action> actions are used in the upperbound plan.\
                             This does not guarantee there is no plan with less actions, or that there aren't more actions in the upperbound plan.")
 
-    parser.add_argument('--action_sample_mode', dest='sample_mode', choices=['random-sequential', 'start-sequential', 'random', 'random-islands'], default='random-sequential',
+    parser.add_argument('--action_sample_mode', dest='sample_mode', choices=['random-sequential', 'start-sequential', 'random', 'random-islands', 'connected', 'connected-islands'], default='random-sequential',
                         help="The way to sample the current graph to generate preconditions for the actions. This can have a big effect on the preconditions of actions depending on graph generation method.")
+
+    parser.add_argument('--num_islands', dest='isl_amt', type=int, default=2,
+                        help="The amount of seperate islands to generate when choosing an island action sample mode. Islands are of equal size (when possible).")
 
     parser.add_argument('--view', action="store_true", help="DEBUG show intermediate graphs")
     parser.add_argument('--verbose', action="store_true", help="DEBUG print more")
@@ -120,25 +213,24 @@ if __name__ == "__main__":
     if args.name:
         name += f"_{args.name}"
 
-    # While loop instead of for loop because we want to be able to control how many times it loops while looping.
-    i = 0
     length = random.randint(args.length, args.length + args.length_range)
     actions = []
     for j in range(args.prb_amt):
-        sample = generate_sample(args)
+        i = 0
+        sample = generate_sample(args, tg)
         actions.append(graph.GraphTransformation(nx.Graph(nx.subgraph(tg.graph, sample)), add=args.add_amt, remove=args.rm_amt, seed=args.seed))
         if args.view:
             actions[-1].view()
         while(i < args.length):
             # This applies the action, if it returns false, it didn't apply and we need to create a new action.
             if (args.length - i < args.mda_amt or not actions[-1].apply(tg.graph, view=args.view, verbose=args.verbose)):
-                sample = generate_sample(args)
+                sample = generate_sample(args, tg)
                 actions.append(graph.GraphTransformation(nx.Graph(nx.subgraph(tg.graph, sample)), add=args.add_amt, remove=args.rm_amt, seed=args.seed))
                 if args.view:
                     actions[-1].view()
                 actions[-1].apply(tg.graph, view=args.view, verbose=args.verbose)
-                if not (args.length - i < args.mda_amt):
-                    args.mda_amt -= 1
+                # Decrease the amount of different actions we still need to make
+                args.mda_amt -= 1
             i += 1
         file = open(f"p-{j + 1}" + name + ".pddl", 'w')
         file.write(generate_pddl_problem(init, tg.graph, f"{j + 1}", args.name))
