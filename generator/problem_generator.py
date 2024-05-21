@@ -9,7 +9,7 @@ import random
 
 TYPES_DEFAULT = 2
 
-def generate_pddl_problem(graph_init, graph_post, name, domain):
+def generate_pddl_problem(graph_init, graph_post, name, domain, degree_mode = False):
     out = f"(define (problem graph-{name}) (:domain graph-{domain})\n"
     out += "(:objects\n"
     out += to_pddl.typed_graph_to_pddl_objects(graph_init)
@@ -23,7 +23,7 @@ def generate_pddl_problem(graph_init, graph_post, name, domain):
     out += ")"
     return out
 
-def generate_pddl_domain(actions: typing.List[graph.GraphTransformation], name, amount_types):
+def generate_pddl_domain(actions: typing.List[graph.GraphTransformation], name, amount_types, degree_mode = False):
     out = f"(define (domain graph-{name})\n\n"
     out += "(:requirements :strips :typing :equality :negative-preconditions)\n\n"
     out += "(:types\n\t"
@@ -44,7 +44,7 @@ def generate_pddl_domain(actions: typing.List[graph.GraphTransformation], name, 
 def generate_connected_sample(args, tg, islands = False):
     sample = []
     to_add = args.size - 1
-    start = randomgen.randint(0, args.nodes)
+    start = randomgen.randint(0, args.nodes - 1)
     sample.append(start)
 
     len_isl = args.size // args.isl_amt
@@ -58,11 +58,11 @@ def generate_connected_sample(args, tg, islands = False):
 
         # If this is true, it is time for a new island
         if (islands and to_add <= (isl_start - len_isl - tmp)):
-            start = randomgen.randint(0, args.nodes)
+            start = randomgen.randint(0, args.nodes - 1)
             n = 0
             while start in sample:
                 n += 1
-                start = randomgen.randint(0, args.nodes)
+                start = randomgen.randint(0, args.nodes - 1)
                 if n > 200:
                     # We probably have the whole graph as a precondition at this point.
                     return sample
@@ -89,11 +89,11 @@ def generate_connected_sample(args, tg, islands = False):
         else:
             # If this executes, there was no new node to connect anywhere in our list.
             # We are forced to generate a new starting point.
-            start = randomgen.randint(0, args.nodes)
+            start = randomgen.randint(0, args.nodes - 1)
             n = 0
             while start in sample:
                 n += 1
-                start = randomgen.randint(0, args.nodes)
+                start = randomgen.randint(0, args.nodes - 1)
                 if n > 200:
                     # We probably have the whole graph as a precondition at this point.
                     return sample
@@ -199,13 +199,18 @@ if __name__ == "__main__":
     parser.add_argument('--num_islands', dest='isl_amt', type=int, default=2,
                         help="The amount of seperate islands to generate when choosing an island action sample mode. Islands are of equal size (when possible).")
 
+    parser.add_argument('--type_mode', dest='tp_mode', choices=['default', 'degree'], default='default',
+                        help="Change the type mode between default (random type assigned from -t different types) and degree (a node is categorized by its degree)")
+
+    parser.add_argument('--keep_degree', action="store_true", help="Actions will keep the degree the same. Only action-add will be used, as added and removed cannot be different in this mode.")
+
     parser.add_argument('--view', action="store_true", help="DEBUG show intermediate graphs")
     parser.add_argument('--verbose', action="store_true", help="DEBUG print more")
 
     args = parser.parse_args()
 
     randomgen = random.Random(args.seed)
-    tg = graph.TypedGraph(args.nodes, p=args.p, k=args.k, t=args.types, mode=args.mode, seed=args.seed)
+    tg = graph.TypedGraph(args.nodes, p=args.p, k=args.k, t=args.types, mode=args.mode, seed=args.seed, type_mode=args.tp_mode)
     # Save the initial graph for adding it to the pddl problems later.
     init = nx.Graph(tg.graph)
 
@@ -215,28 +220,39 @@ if __name__ == "__main__":
 
     length = random.randint(args.length, args.length + args.length_range)
     actions = []
+
+    amount_types = args.types - 1
+
     for j in range(args.prb_amt):
         i = 0
         sample = generate_sample(args, tg)
-        actions.append(graph.GraphTransformation(nx.Graph(nx.subgraph(tg.graph, sample)), add=args.add_amt, remove=args.rm_amt, seed=args.seed))
+        actions.append(graph.GraphTransformation(nx.Graph(nx.subgraph(tg.graph, sample)), add=args.add_amt, remove=args.rm_amt, seed=args.seed, type_mode=args.tp_mode, keep_degree=args.keep_degree))
         if args.view:
             actions[-1].view()
         while(i < args.length):
+            if (args.tp_mode == "degree"):
+                max_degree = max(list(tg.graph.degree()), key=lambda x: x[1])
+                if max_degree[1] > amount_types:
+                    amount_types = max_degree[1]
             # This applies the action, if it returns false, it didn't apply and we need to create a new action.
             if (args.length - i < args.mda_amt or not actions[-1].apply(tg.graph, view=args.view, verbose=args.verbose)):
                 sample = generate_sample(args, tg)
-                actions.append(graph.GraphTransformation(nx.Graph(nx.subgraph(tg.graph, sample)), add=args.add_amt, remove=args.rm_amt, seed=args.seed))
+                actions.append(graph.GraphTransformation(nx.Graph(nx.subgraph(tg.graph, sample)), add=args.add_amt, remove=args.rm_amt, seed=args.seed, type_mode=args.tp_mode, keep_degree=args.keep_degree))
                 if args.view:
                     actions[-1].view()
                 actions[-1].apply(tg.graph, view=args.view, verbose=args.verbose)
                 # Decrease the amount of different actions we still need to make
                 args.mda_amt -= 1
             i += 1
+        if (args.tp_mode == "degree"):
+            max_degree = max(list(tg.graph.degree()), key= lambda x: x[1])
+            if max_degree[1] > amount_types:
+                amount_types = max_degree[1]
         file = open(f"p-{j + 1}" + name + ".pddl", 'w')
-        file.write(generate_pddl_problem(init, tg.graph, f"{j + 1}", args.name))
+        file.write(generate_pddl_problem(init, tg.graph, f"{j + 1}", args.name), degree_mode = (args.tp_mode == "degree"))
         file.close()
         tg.graph = nx.Graph(init)
 
     file = open("domain" + name + ".pddl", 'w')
-    file.write(generate_pddl_domain(actions, args.name, args.types))
+    file.write(generate_pddl_domain(actions, args.name, amount_types=amount_types + 1), degree_mode = (args.tp_mode == "degree"))
     file.close()
