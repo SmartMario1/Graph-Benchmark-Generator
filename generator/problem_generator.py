@@ -43,12 +43,13 @@ def generate_pddl_domain(actions: typing.List[graph.GraphTransformation], name, 
 
 def generate_connected_sample(args, tg, islands = False):
     sample = []
-    to_add = args.size - 1
-    start = randomgen.randint(0, args.nodes - 1)
+    size = randomgen.randint(args.size, args.size + args.action_range)
+    to_add = size - 1
+    start = randomgen.randint(0, args.nodes * args.graph_parts - 1)
     sample.append(start)
 
-    len_isl = args.size // args.isl_amt
-    rem = args.size % args.isl_amt
+    len_isl = size // args.isl_amt
+    rem = size % args.isl_amt
     isl_start = to_add + 1
 
     while (to_add > 0):
@@ -58,11 +59,11 @@ def generate_connected_sample(args, tg, islands = False):
 
         # If this is true, it is time for a new island
         if (islands and to_add <= (isl_start - len_isl - tmp)):
-            start = randomgen.randint(0, args.nodes - 1)
+            start = randomgen.randint(0, args.nodes * args.graph_parts - 1)
             n = 0
             while start in sample:
                 n += 1
-                start = randomgen.randint(0, args.nodes - 1)
+                start = randomgen.randint(0, args.nodes * args.graph_parts - 1)
                 if n > 200:
                     # We probably have the whole graph as a precondition at this point.
                     return sample
@@ -89,11 +90,11 @@ def generate_connected_sample(args, tg, islands = False):
         else:
             # If this executes, there was no new node to connect anywhere in our list.
             # We are forced to generate a new starting point.
-            start = randomgen.randint(0, args.nodes - 1)
+            start = randomgen.randint(0, args.nodes * args.graph_parts - 1)
             n = 0
             while start in sample:
                 n += 1
-                start = randomgen.randint(0, args.nodes - 1)
+                start = randomgen.randint(0, args.nodes * args.graph_parts - 1)
                 if n > 200:
                     # We probably have the whole graph as a precondition at this point.
                     return sample
@@ -103,16 +104,17 @@ def generate_connected_sample(args, tg, islands = False):
 
 def generate_sample(args, tg : graph.TypedGraph):
     sample = []
+    size = randomgen.randint(args.size, args.size + args.action_range)
     if args.sample_mode == "random-sequential":
-        start = randomgen.randint(0, args.nodes - args.size - 1)
-        sample = list(range(start, start + args.size))
+        start = randomgen.randint(0, args.nodes * args.graph_parts - size - 1)
+        sample = list(range(start, start + size))
     if args.sample_mode == "start-sequential":
-        sample = list(range(args.size))
+        sample = list(range(size))
     if args.sample_mode == "random":
-        sample = randomgen.sample(list(range(args.nodes)), args.size)
+        sample = randomgen.sample(list(range(args.nodes * args.graph_parts)), size)
     if args.sample_mode == "random-islands":
-        len_isl = args.size // args.isl_amt
-        rem = args.size % args.isl_amt
+        len_isl = size // args.isl_amt
+        rem = size % args.isl_amt
         print(len_isl, rem)
         for _i in range(args.isl_amt):
             tmp = 0
@@ -120,12 +122,12 @@ def generate_sample(args, tg : graph.TypedGraph):
                 tmp = 1
                 rem -= 1
 
-            start = randomgen.randint(0, args.nodes - args.size - 1)
+            start = randomgen.randint(0, args.nodes * args.graph_parts - size - 1)
             # Make sure the islands are not overlapping
             n = 0
             while (start + len_isl + tmp) in sample:
                 n += 1
-                start = randomgen.randint(0, args.nodes - args.size - 1)
+                start = randomgen.randint(0, args.nodes * args.graph_parts - size - 1)
                 if (n > 100):
                     # Assume it is impossible to add another disconnected island
                     print("Islands overlapping, action size is too big for disconnected islands.")
@@ -153,7 +155,7 @@ if __name__ == "__main__":
                         help = "Length of the upperbound plan generated for the graph problem.")
 
     parser.add_argument('-lr', '--length-range', dest='length_range', type=int, default=0,
-                        help = "Amount of variance in plan length. Range starts from -length. Actual plan length gets sampled at random.")
+                        help = "Amount of variance in plan length. Range starts from --length. Actual plan length gets sampled at random.")
 
     parser.add_argument('--mode', dest='mode', type=str, default="barabasi-albert", choices=['barabasi-albert', 'erdos-renyi', 'watts-strogatz', 'internet'],
                         help = "The way to generate each graph. Currently the following are supported:\
@@ -162,6 +164,9 @@ if __name__ == "__main__":
     parser.add_argument('--action-size', dest='size', type=int, default=4,
                         help="The amount of arguments to be generated for actions. A larger size means\
                         the precondition of actions becomes larger and thus stricter.")
+
+    parser.add_argument('--action-range', dest='action_range', type=int, default=0,
+                        help="Amount of variance in action size. Range starts from --action-size. Actual action size gets sampled at random.")
 
     parser.add_argument('--action-add', dest='add_amt', type=int, default=2,
                         help="The amount of (random) edges an action adds to the given subgraph. When using degree mode this should be at least 2.")
@@ -204,13 +209,16 @@ if __name__ == "__main__":
 
     parser.add_argument('--keep_degree', action="store_true", help="Actions will keep the degree the same. Only action-add will be used, as added and removed cannot be different in this mode.")
 
+    parser.add_argument('--graph_parts', type=int, default=1, help="How many seperate graph parts to generate and combine into one graph.\
+        More graph parts means more disconnected parts that are internally generated by the given method.")
+
     parser.add_argument('--view', action="store_true", help="DEBUG show intermediate graphs")
     parser.add_argument('--verbose', action="store_true", help="DEBUG print more")
 
     args = parser.parse_args()
 
     randomgen = random.Random(args.seed)
-    tg = graph.TypedGraph(args.nodes, p=args.p, k=args.k, t=args.types, mode=args.mode, seed=args.seed, type_mode=args.tp_mode)
+    tg = graph.TypedGraph(args.nodes, p=args.p, k=args.k, t=args.types, mode=args.mode, seed=args.seed, type_mode=args.tp_mode, graph_parts = args.graph_parts)
     # Save the initial graph for adding it to the pddl problems later.
     init = nx.Graph(tg.graph)
 
@@ -249,10 +257,10 @@ if __name__ == "__main__":
             if max_degree[1] > amount_types:
                 amount_types = max_degree[1]
         file = open(f"p-{j + 1}" + name + ".pddl", 'w')
-        file.write(generate_pddl_problem(init, tg.graph, f"{j + 1}", args.name), degree_mode = (args.tp_mode == "degree"))
+        file.write(generate_pddl_problem(init, tg.graph, f"{j + 1}", args.name, degree_mode = (args.tp_mode == "degree")))
         file.close()
         tg.graph = nx.Graph(init)
 
     file = open("domain" + name + ".pddl", 'w')
-    file.write(generate_pddl_domain(actions, args.name, amount_types=amount_types + 1), degree_mode = (args.tp_mode == "degree"))
+    file.write(generate_pddl_domain(actions, args.name, amount_types=amount_types + 1, degree_mode = (args.tp_mode == "degree")))
     file.close()

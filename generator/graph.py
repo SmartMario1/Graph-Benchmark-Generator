@@ -13,16 +13,28 @@ class TypedGraph:
 
     randomgen : random.Random = None
 
-    def __init__(self, n, p=0.5, t=1, k=1, seed = None, mode="erdos-renyi", type_mode = "default"):
+    def __init__(self, n, p=0.5, t=1, k=1, seed = None, mode="erdos-renyi", type_mode = "default", graph_parts = 1):
         self.randomgen = random.Random(seed)
         if mode == "erdos-renyi":
-            self.graph = nx.erdos_renyi_graph(n, p, seed=seed)
+            graph = nx.Graph()
+            for i in range(graph_parts):
+                graph = nx.disjoint_union(graph, nx.erdos_renyi_graph(n, p, seed=seed))
+            self.graph = graph
         elif mode == "watts-strogatz":
-            self.graph = nx.watts_strogatz_graph(n, k, p, seed=seed)
+            graph = nx.Graph()
+            for i in range(graph_parts):
+                graph = nx.disjoint_union(graph, nx.watts_strogatz_graph(n, k, p, seed=seed))
+            self.graph = graph
         elif mode == "barabasi-albert":
-            self.graph = nx.barabasi_albert_graph(n, k, seed=seed)
+            graph = nx.Graph()
+            for i in range(graph_parts):
+                graph = nx.disjoint_union(graph, nx.barabasi_albert_graph(n, k, seed=seed))
+            self.graph = graph
         elif mode == "internet":
-            self.graph = nx.random_internet_as_graph(n, seed=seed)
+            graph = nx.Graph()
+            for i in range(graph_parts):
+                graph = nx.disjoint_union(nx.random_internet_as_graph(n, seed=seed))
+            self.graph = graph
         else:
             print(f"Unknown generation mode \"{mode}\".")
             exit(1)
@@ -55,7 +67,8 @@ class GraphTransformation:
                 if keep_degree:
                     j = 0
                     k = 0
-                    while j < add and k < 1000:
+                    # Keep going untill the amount of changed edges is higher than add, or 1000 tries.
+                    while len(list(filter(lambda x: not x in self.graph_prec.edges, self.graph_post.edges))) < add and k < 1000:
                         k += 1
                         u1, v1 = self.randomgen.choice(list(self.graph_post.edges))
                         u2, v2 = self.randomgen.choice(list(self.graph_post.edges))
