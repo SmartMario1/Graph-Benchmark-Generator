@@ -50,7 +50,7 @@ def typed_graph_to_pddl_objects(graph: nx.Graph):
 
 def typed_graph_to_pddl_action_args(graph: nx.Graph):
     out = ""
-    for n in graph.nodes:
+    for n in sorted(graph.nodes):
         type = graph.nodes.data()[n]['type']
         out += f"?n{n}t{type} - type{type} "
     return out

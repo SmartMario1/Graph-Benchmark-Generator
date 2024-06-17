@@ -2,11 +2,11 @@
  This is a generator for Hard To Ground (HTG) PDDL graph problems.
 
 ## Arguments
-In this section all optional arguments are explained, sometimes in more detail than in the --help message.
+In this section all possible arguments are explained, sometimes in more detail than in the --help message.
 
   - -h, --help            show the
   - -n NODES, --nodes NODES
-                        Amount of nodes to generate in the starting graph. If used with --graph_parts, each part of the graph gets \<NODES\> nodes.
+                        Amount of nodes to generate in the starting graph. If used with --graph_parts, the graph gets generated so that there are \<NODES\> nodes in total, distributing them as equal as possible among the graph parts.
 
   - -l LENGTH, --length LENGTH
                         Length of the upperbound plan generated for the graph problem. It is not guaranteed that there is no shorter plan, but it is guaranteed that the plan is at most \<LENGTH\> long.

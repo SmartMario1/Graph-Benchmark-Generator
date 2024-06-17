@@ -1,4 +1,6 @@
 domainTEST.pddl
 GENproblem.pddl
+/Grid/*
 p-2.pddl
 p-3.pddl
+*.pddl

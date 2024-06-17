@@ -13,27 +13,37 @@ class TypedGraph:
 
     randomgen : random.Random = None
 
-    def __init__(self, n, p=0.5, t=1, k=1, seed = None, mode="erdos-renyi", type_mode = "default", graph_parts = 1):
+    def __init__(self, n, p=0.5, t=1, k=1, seed = None, mode="erdos-renyi", type_mode = "default", graph_parts = 1, normal = False, n_range = 0):
         self.randomgen = random.Random(seed)
+        if normal:
+            nodes = round(self.randomgen.normalvariate(n, n_range))
+        else:
+            nodes = self.randomgen.randint(round(n), round(n+n_range))
+        rem = nodes % graph_parts
+        nodes = nodes // graph_parts
         if mode == "erdos-renyi":
             graph = nx.Graph()
             for i in range(graph_parts):
-                graph = nx.disjoint_union(graph, nx.erdos_renyi_graph(n, p, seed=seed))
+                graph = nx.disjoint_union(graph, nx.erdos_renyi_graph(nodes + int(rem >= 1), p, seed=seed))
+                rem -= 1
             self.graph = graph
         elif mode == "watts-strogatz":
             graph = nx.Graph()
             for i in range(graph_parts):
-                graph = nx.disjoint_union(graph, nx.watts_strogatz_graph(n, k, p, seed=seed))
+                graph = nx.disjoint_union(graph, nx.watts_strogatz_graph(nodes + int(rem >= 1), k, p, seed=seed))
+                rem -= 1
             self.graph = graph
         elif mode == "barabasi-albert":
             graph = nx.Graph()
             for i in range(graph_parts):
-                graph = nx.disjoint_union(graph, nx.barabasi_albert_graph(n, k, seed=seed))
+                graph = nx.disjoint_union(graph, nx.barabasi_albert_graph(nodes + int(rem >= 1), k, seed=seed))
+                rem -= 1
             self.graph = graph
         elif mode == "internet":
             graph = nx.Graph()
             for i in range(graph_parts):
-                graph = nx.disjoint_union(nx.random_internet_as_graph(n, seed=seed))
+                graph = nx.disjoint_union(nx.random_internet_as_graph(nodes + int(rem >= 1), seed=seed))
+                rem -= 1
             self.graph = graph
         else:
             print(f"Unknown generation mode \"{mode}\".")
@@ -145,9 +155,10 @@ class GraphTransformation:
         if not maps:
             print("no mappings found")
             plt.clf()
-            return False
+            return None
 
         mapping = self.randomgen.choice(maps)
+
         # print(maps)
         transformed_graph = graph
         for edge in nx.Graph(self.graph_prec).edges:
@@ -165,7 +176,7 @@ class GraphTransformation:
             nx.draw(graph, with_labels=True, node_color=colors, node_size=100)
             plt.show()
 
-        return True
+        return mapping
 
 
     def view(self):
