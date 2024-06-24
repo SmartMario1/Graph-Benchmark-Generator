@@ -51,5 +51,6 @@ In this section all possible arguments are explained, sometimes in more detail t
                         method.
   - --normal              Switch from a uniform distribution to a normal distribution for all ranges specified. Actual value becomes mean and range becomes standard deviation.
   - --plan                Generate the upperbound plan of every problem and store it in an associated plan file
+  - --same_start          If this flag is enabled, each problem generated will start from the same starting graph.
   - --view                DEBUG show intermediate graphs in interactive matplotlib windows
   - --verbose             DEBUG print when a mapping is found or not

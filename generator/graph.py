@@ -125,12 +125,17 @@ class GraphTransformation:
                 for i in range(add):
                     e1 = self.randomgen.choice(list(self.graph_post.nodes))
                     e2 = self.randomgen.choice(list(self.graph_post.nodes))
+
                     # ensure that it doesn't try to add a self edge
+                    i = 0
                     while e2 == e1:
                         e2 = self.randomgen.choice(list(self.graph_post.nodes))
-                    if self.type_mode == "degree" and not (self.graph_post.has_edge(e1, e2) or self.graph_post.has_edge(e2, e1)):
-                        self.graph_post.nodes[e1]["type"] += 1
-                        self.graph_post.nodes[e2]["type"] += 1
+                        i += 1
+                        if i > 50:
+                            break
+                    if i > 50:
+                        continue
+
                     self.graph_post.add_edge(e1, e2)
 
     def apply(self, graph: nx.Graph, view = False, verbose = False) -> bool:

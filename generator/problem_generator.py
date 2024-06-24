@@ -244,12 +244,11 @@ if __name__ == "__main__":
 
     parser.add_argument('--plan', action="store_true", help="Generate the upperbound plan and store it in an associated plan file")
 
+    parser.add_argument('--same_start', action="store_true", help="If this flag is enabled, each problem generated will start from the same starting graph.")
+
     args = parser.parse_args()
 
     randomgen = random.Random(args.seed)
-    tg = graph.TypedGraph(args.nodes, p=args.p, k=args.k, t=args.types, mode=args.mode, seed=args.seed, type_mode=args.tp_mode, graph_parts = args.graph_parts, normal=args.normal, n_range=args.node_range)
-    # Save the initial graph for adding it to the pddl problems later.
-    init = nx.Graph(tg.graph)
 
     name = ""
     if args.name:
@@ -260,7 +259,16 @@ if __name__ == "__main__":
     amount_types = args.types - 1
     t = -1
 
+    if args.same_start:
+        tg = graph.TypedGraph(args.nodes, p=args.p, k=args.k, t=args.types, mode=args.mode, seed=randomgen.randint(0, 65536), type_mode=args.tp_mode, graph_parts = args.graph_parts, normal=args.normal, n_range=args.node_range)
+        init = nx.Graph(tg.graph)
+
     for j in range(args.prb_amt):
+        # If same_start is true, we don't want to generate a new graph each time.
+        if not args.same_start:
+            tg = graph.TypedGraph(args.nodes, p=args.p, k=args.k, t=args.types, mode=args.mode, seed=randomgen.randint(0, 65536), type_mode=args.tp_mode, graph_parts = args.graph_parts, normal=args.normal, n_range=args.node_range)
+            init = nx.Graph(tg.graph)
+
         plan = []
         if args.normal:
             length = round(randomgen.normalvariate(args.length, args.length_range))
@@ -304,7 +312,8 @@ if __name__ == "__main__":
             file = open(f"plan-{j + 1}" + name + ".plan", 'w')
             file.write(generate_pddl_plan(plan, tg))
             file.close()
-        tg.graph = nx.Graph(init)
+        if args.same_start:
+            tg.graph = nx.Graph(init)
 
     file = open("domain" + name + ".pddl", 'w')
     file.write(generate_pddl_domain(actions, args.name, amount_types=amount_types + 1, degree_mode = (args.tp_mode == "degree")))
