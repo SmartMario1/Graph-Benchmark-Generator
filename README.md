@@ -13,7 +13,7 @@ In this section all possible arguments are explained, sometimes in more detail t
                         Length of the upperbound plan generated for the graph problem. It is not guaranteed that there is no shorter plan, but it is guaranteed that the plan is at most \<LENGTH\> long.
   - -lr LENGTH_RANGE, --length-range LENGTH_RANGE
                         Amount of variance in plan length. Range starts from --length. Actual plan length gets sampled at random per problem. A uniform distribution is used.
-  - --mode {barabasi-albert,erdos-renyi,watts-strogatz,internet}
+  - --mode {barabasi-albert,erdos-renyi,watts-strogatz}
                         The way to generate each graph. Currently the following are supported: - barabasi-albert (DEFAULT) - erdos-renyi - watts-strogatz. If multiple graph_parts are used, each part gets internally generated using this method.
   - --action-size SIZE    The amount of arguments to be generated for actions. A larger size means the precondition of actions becomes larger and thus stricter. It also means that there should be more valid permutations of nodes and thus that the problem is harder to ground.
   - --action-range ACTION_RANGE

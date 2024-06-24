@@ -184,9 +184,9 @@ if __name__ == "__main__":
     parser.add_argument('-lr', '--length-range', dest='length_range', type=float, default=0,
                         help = "Amount of variance in plan length. Range starts from --length. Actual plan length gets sampled at random.")
 
-    parser.add_argument('--mode', dest='mode', type=str, default="barabasi-albert", choices=['barabasi-albert', 'erdos-renyi', 'watts-strogatz', 'internet'],
+    parser.add_argument('--mode', dest='mode', type=str, default="barabasi-albert", choices=['barabasi-albert', 'erdos-renyi', 'watts-strogatz'],
                         help = "The way to generate each graph. Currently the following are supported:\
-                        \n- barabasi-albert (DEFAULT)\n- erdos-renyi\n- watts-strogatz\n- internet")
+                        \n- barabasi-albert (DEFAULT)\n- erdos-renyi\n- watts-strogatz")
 
     parser.add_argument('--action-size', dest='size', type=float, default=4,
                         help="The amount of arguments to be generated for actions. A larger size means\

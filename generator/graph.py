@@ -39,12 +39,6 @@ class TypedGraph:
                 graph = nx.disjoint_union(graph, nx.barabasi_albert_graph(nodes + int(rem >= 1), k, seed=seed))
                 rem -= 1
             self.graph = graph
-        elif mode == "internet":
-            graph = nx.Graph()
-            for i in range(graph_parts):
-                graph = nx.disjoint_union(nx.random_internet_as_graph(nodes + int(rem >= 1), seed=seed))
-                rem -= 1
-            self.graph = graph
         else:
             print(f"Unknown generation mode \"{mode}\".")
             exit(1)
