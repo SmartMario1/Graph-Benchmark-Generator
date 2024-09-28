@@ -4,3 +4,5 @@ GENproblem.pddl
 p-2.pddl
 p-3.pddl
 *.pddl
+*.plan
+/Data/*

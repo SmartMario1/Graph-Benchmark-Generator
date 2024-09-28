@@ -33,7 +33,7 @@ def generate_pddl_domain(actions: typing.List[graph.GraphTransformation], name, 
     out += "node - object\n\t"
     out += ")\n\n"
 
-    out += "(:predicates\n\t(link ?n0 - node ?n1 - node)\n\t)\n\n"
+    out += "(:predicates\n\t(link ?n0 - node ?n1 - node)\n\t(double-link ?n0 - node ?n1 - node)\n\t(triple-link ?n0 - node ?n1 - node)\n\t)\n\n"
 
     for i, a in enumerate(actions):
         out += to_pddl.graph_transformation_to_pddl_action(a, i)
@@ -184,9 +184,11 @@ if __name__ == "__main__":
     parser.add_argument('-lr', '--length-range', dest='length_range', type=float, default=0,
                         help = "Amount of variance in plan length. Range starts from --length. Actual plan length gets sampled at random.")
 
-    parser.add_argument('--mode', dest='mode', type=str, default="barabasi-albert", choices=['barabasi-albert', 'erdos-renyi', 'watts-strogatz'],
+    parser.add_argument('--mode', dest='mode', type=str, default="barabasi-albert", choices=['barabasi-albert', 'erdos-renyi', 'watts-strogatz', 'smiles'],
                         help = "The way to generate each graph. Currently the following are supported:\
-                        \n- barabasi-albert (DEFAULT)\n- erdos-renyi\n- watts-strogatz")
+                        \n- barabasi-albert (DEFAULT)\n- erdos-renyi\n- watts-strogatz\n- smiles")
+
+    parser.add_argument('--smiles', dest="smiles", type=str, default=None, help="Directory where smiles files are stored if using smiles method")
 
     parser.add_argument('--action-size', dest='size', type=float, default=4,
                         help="The amount of arguments to be generated for actions. A larger size means\
@@ -260,13 +262,13 @@ if __name__ == "__main__":
     t = -1
 
     if args.same_start:
-        tg = graph.TypedGraph(args.nodes, p=args.p, k=args.k, t=args.types, mode=args.mode, seed=randomgen.randint(0, 65536), type_mode=args.tp_mode, graph_parts = args.graph_parts, normal=args.normal, n_range=args.node_range)
+        tg = graph.TypedGraph(args.nodes, p=args.p, k=args.k, t=args.types, mode=args.mode, seed=randomgen.randint(0, 65536), type_mode=args.tp_mode, graph_parts = args.graph_parts, normal=args.normal, n_range=args.node_range, smiles_dir=args.smiles)
         init = nx.Graph(tg.graph)
 
     for j in range(args.prb_amt):
         # If same_start is true, we don't want to generate a new graph each time.
         if not args.same_start:
-            tg = graph.TypedGraph(args.nodes, p=args.p, k=args.k, t=args.types, mode=args.mode, seed=randomgen.randint(0, 65536), type_mode=args.tp_mode, graph_parts = args.graph_parts, normal=args.normal, n_range=args.node_range)
+            tg = graph.TypedGraph(args.nodes, p=args.p, k=args.k, t=args.types, mode=args.mode, seed=randomgen.randint(0, 65536), type_mode=args.tp_mode, graph_parts = args.graph_parts, normal=args.normal, n_range=args.node_range, smiles_dir=args.smiles)
             init = nx.Graph(tg.graph)
 
         plan = []
@@ -280,8 +282,8 @@ if __name__ == "__main__":
         if (not (length - i < mda_amt)):
             actions.append(graph.GraphTransformation(nx.Graph(nx.subgraph(tg.graph, sample)), add=args.add_amt, remove=args.rm_amt, seed=args.seed, type_mode=args.tp_mode, keep_degree=(args.tp_mode == "degree")))
             t += 1
-        if args.view:
-            actions[-1].view()
+            if args.view:
+                actions[-1].view()
         while(i < length):
             if (args.tp_mode == "degree"):
                 max_degree = max(list(tg.graph.degree()), key=lambda x: x[1])

@@ -2,6 +2,7 @@ import graph
 import networkx as nx
 
 def typed_graph_to_pddl_state(graph: nx.Graph, action = False, inv = False, post = False):
+    order_dict = {1: '', 2: 'double-', 3:'triple-'}
     out = ""
     q = ""
     t = "\t"
@@ -10,15 +11,16 @@ def typed_graph_to_pddl_state(graph: nx.Graph, action = False, inv = False, post
         t += '\t'
 
     # we assume every node in the graph has the "type" attribute
-    for e in graph.edges:
+    for e in graph.edges.data():
         n0 = q + f"n{e[0]}t{graph.nodes.data()[e[0]]['type']}"
         n1 = q + f"n{e[1]}t{graph.nodes.data()[e[1]]['type']}"
+        prefix = order_dict[e[2]['order']]
         if not inv:
-            out += t + f"(link {n0} {n1})\n"
-            out += t + f"(link {n1} {n0})\n"
+            out += t + f"({prefix}link {n0} {n1})\n"
+            out += t + f"({prefix}link {n1} {n0})\n"
         else:
-            out += t + f"(not (link {n0} {n1}))\n"
-            out += t + f"(not (link {n1} {n0}))\n"
+            out += t + f"(not ({prefix}link {n0} {n1}))\n"
+            out += t + f"(not ({prefix}link {n1} {n0}))\n"
 
     # Actions need the precondition that arguments are not the same node.
     if action and not post:

@@ -4,7 +4,7 @@ from string import ascii_lowercase, ascii_uppercase
 import networkx as nx
 import matplotlib.pyplot as plt
 import matplotlib as mpl
-import typing
+import smilesreader
 
 GLOB_COLORS = [[1, 0, 0], [0, 1, 0], [0, 0, 1], [1, 1, 0], [1, 0, 1], [0, 1, 1], [1, 1, 0.5], [1, 0.5, 1], [0.5, 1, 1], [0.8, 0.8, 0.8], [0.5, 0.5, 0.5], [0.3, 0.3, 0.3]]
 
@@ -13,7 +13,7 @@ class TypedGraph:
 
     randomgen : random.Random = None
 
-    def __init__(self, n, p=0.5, t=1, k=1, seed = None, mode="erdos-renyi", type_mode = "default", graph_parts = 1, normal = False, n_range = 0):
+    def __init__(self, n, p=0.5, t=1, k=1, seed = None, mode="erdos-renyi", type_mode = "default", graph_parts = 1, normal = False, n_range = 0, smiles_dir = None, use_distribution = False):
         self.randomgen = random.Random(seed)
         if normal:
             nodes = round(self.randomgen.normalvariate(n, n_range))
@@ -39,15 +39,30 @@ class TypedGraph:
                 graph = nx.disjoint_union(graph, nx.barabasi_albert_graph(nodes + int(rem >= 1), k, seed=seed))
                 rem -= 1
             self.graph = graph
+        elif mode == "smiles":
+            self.graph = smilesreader.create_smiles_graph(smiles_dir, n, use_distribution)
+
         else:
             print(f"Unknown generation mode \"{mode}\".")
             exit(1)
 
+        types = []
         for i, node in enumerate(self.graph):
             if type_mode == "default":
                 self.graph.nodes[i]['type'] = self.randomgen.randint(0, t - 1)
+
             elif type_mode == "degree":
-                self.graph.nodes[i]['type'] = self.graph.degree(i)
+                if mode == "smiles":
+                    if self.graph.nodes[i]['element'] not in types:
+                        types.append(self.graph.nodes[i]['element'])
+                    self.graph.nodes[i]['type'] = types.index(self.graph.nodes[i]['element'])
+
+                else:
+                    self.graph.nodes[i]['type'] = self.graph.degree(i)
+        for e in self.graph.edges:
+            if 'order' not in self.graph.edges[e]:
+                # If we are not using double.triple bonds, all edges are single weight
+                self.graph.edges[e]['order'] = 1
 
     def view(self):
         colors = [GLOB_COLORS[x[1]["type"]] if x[1]["type"] < len(GLOB_COLORS) else [0, 0, 0] for x in self.graph.nodes.data()]
@@ -74,35 +89,35 @@ class GraphTransformation:
                     # Keep going untill the amount of changed edges is higher than add, or 1000 tries.
                     while len(list(filter(lambda x: not x in self.graph_prec.edges, self.graph_post.edges))) < add and k < 1000:
                         k += 1
-                        u1, v1 = self.randomgen.choice(list(self.graph_post.edges))
-                        u2, v2 = self.randomgen.choice(list(self.graph_post.edges))
+                        u1, v1, order1 = self.randomgen.choice(list(self.graph_post.edges.data('order')))
+                        u2, v2, order2 = self.randomgen.choice([x for x in list(self.graph_post.edges.data('order')) if x[2] == order1])
                         t = self.randomgen.randint(0,1)
                         # Try random order so both permutations can occur.
                         if t:
                             if (u1 != u2 and v1 != v2 and not self.graph_post.has_edge(u1, u2) and not self.graph_post.has_edge(v1, v2)):
                                 self.graph_post.remove_edge(u1, v1)
                                 self.graph_post.remove_edge(u2, v2)
-                                self.graph_post.add_edge(u1, u2)
-                                self.graph_post.add_edge(v1, v2)
+                                self.graph_post.add_edge(u1, u2, order = order1)
+                                self.graph_post.add_edge(v1, v2, order = order2)
                                 j += 2
                             elif (u1 != v2 and u2 != v1 and not self.graph_post.has_edge(u1, v2) and not self.graph_post.has_edge(u2, v1)):
                                 self.graph_post.remove_edge(u1, v1)
                                 self.graph_post.remove_edge(u2, v2)
-                                self.graph_post.add_edge(u1, v2)
-                                self.graph_post.add_edge(u2, v1)
+                                self.graph_post.add_edge(u1, v2, order = order1)
+                                self.graph_post.add_edge(u2, v1, order = order2)
                                 j += 2
                         else:
                             if (u1 != v2 and u2 != v1 and not self.graph_post.has_edge(u1, v2) and not self.graph_post.has_edge(u2, v1)):
                                 self.graph_post.remove_edge(u1, v1)
                                 self.graph_post.remove_edge(u2, v2)
-                                self.graph_post.add_edge(u1, v2)
-                                self.graph_post.add_edge(u2, v1)
+                                self.graph_post.add_edge(u1, v2, order = order1)
+                                self.graph_post.add_edge(u2, v1, order = order2)
                                 j += 2
                             elif (u1 != u2 and v1 != v2 and not self.graph_post.has_edge(u1, u2) and not self.graph_post.has_edge(v1, v2)):
                                 self.graph_post.remove_edge(u1, v1)
                                 self.graph_post.remove_edge(u2, v2)
-                                self.graph_post.add_edge(u1, u2)
-                                self.graph_post.add_edge(v1, v2)
+                                self.graph_post.add_edge(u1, u2, order = order1)
+                                self.graph_post.add_edge(v1, v2, order = order2)
                                 j += 2
                     return
                 for i in range(remove):
@@ -113,9 +128,6 @@ class GraphTransformation:
                         break
 
                     self.graph_post.remove_edge(u, v)
-                    if self.type_mode == "degree":
-                        self.graph_post.nodes[u]["type"] -= 1
-                        self.graph_post.nodes[v]["type"] -= 1
                 for i in range(add):
                     e1 = self.randomgen.choice(list(self.graph_post.nodes))
                     e2 = self.randomgen.choice(list(self.graph_post.nodes))
@@ -164,8 +176,8 @@ class GraphTransformation:
             transformed_graph.remove_edge(mapping[edge[0]], mapping[edge[1]])
             transformed_graph.nodes[mapping[edge[0]]]["type"] = self.graph_post.nodes[edge[0]]["type"]
             transformed_graph.nodes[mapping[edge[1]]]["type"] = self.graph_post.nodes[edge[1]]["type"]
-        for edge in self.graph_post.edges:
-            transformed_graph.add_edge(mapping[edge[0]], mapping[edge[1]])
+        for edge in self.graph_post.edges.data():
+            transformed_graph.add_edge(mapping[edge[0]], mapping[edge[1]], order=edge[2]['order'])
             transformed_graph.nodes[mapping[edge[0]]]["type"] = self.graph_post.nodes[edge[0]]["type"]
             transformed_graph.nodes[mapping[edge[1]]]["type"] = self.graph_post.nodes[edge[1]]["type"]
 
