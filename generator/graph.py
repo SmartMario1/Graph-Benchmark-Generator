@@ -13,7 +13,7 @@ class TypedGraph:
 
     randomgen : random.Random = None
 
-    def __init__(self, n, p=0.5, t=1, k=1, seed = None, mode="erdos-renyi", type_mode = "default", graph_parts = 1, normal = False, n_range = 0, smiles_dir = None, use_distribution = False):
+    def __init__(self, n, p=0, t=1, k=1, seed = None, mode="erdos-renyi", type_mode = "default", graph_parts = 1, normal = False, n_range = 0, smiles_dir = None, use_distribution = False, max_d = None):
         self.randomgen = random.Random(seed)
         if normal:
             nodes = round(self.randomgen.normalvariate(n, n_range))
@@ -36,7 +36,7 @@ class TypedGraph:
         elif mode == "barabasi-albert":
             graph = nx.Graph()
             for i in range(graph_parts):
-                graph = nx.disjoint_union(graph, nx.barabasi_albert_graph(nodes + int(rem >= 1), k, seed=seed))
+                graph = nx.disjoint_union(graph, barabasi_albert_graph(n, k, p, max_d, seed))
                 rem -= 1
             self.graph = graph
         elif mode == "smiles":
@@ -45,6 +45,11 @@ class TypedGraph:
         else:
             print(f"Unknown generation mode \"{mode}\".")
             exit(1)
+
+        for e in self.graph.edges:
+            if 'order' not in self.graph.edges[e]:
+                # If we are not using double, triple bonds, all edges are single weight
+                self.graph.edges[e]['order'] = 1
 
         types = []
         for i, node in enumerate(self.graph):
@@ -58,11 +63,7 @@ class TypedGraph:
                     self.graph.nodes[i]['type'] = types.index(self.graph.nodes[i]['element'])
 
                 else:
-                    self.graph.nodes[i]['type'] = self.graph.degree(i)
-        for e in self.graph.edges:
-            if 'order' not in self.graph.edges[e]:
-                # If we are not using double.triple bonds, all edges are single weight
-                self.graph.edges[e]['order'] = 1
+                    self.graph.nodes[i]['type'] = self.graph.degree(i, weight='order')
 
     def view(self):
         colors = [GLOB_COLORS[x[1]["type"]] if x[1]["type"] < len(GLOB_COLORS) else [0, 0, 0] for x in self.graph.nodes.data()]
@@ -198,3 +199,45 @@ class GraphTransformation:
         sub2 = plt.subplot(122)
         nx.draw(self.graph_post, with_labels = True, node_color=colors_post, node_size=100)
         plt.show()
+
+
+# Adapted from the NetworkX source code to include max degree and chance for double attachments
+def barabasi_albert_graph(n, m, p, max_d=None, seed=None):
+    if m < 1 or  m >=n:
+        raise nx.NetworkXError(\
+              "Barabási-Albert network must have m>=1 and m<n, m=%d,n=%d"%(m,n))
+    if seed is not None:
+        np.random.seed(seed)
+
+    # Add m initial nodes (m0 in barabasi-speak)
+    G=nx.empty_graph(m)
+    # Target nodes for new edges
+    targets=set(range(m))
+    # List of existing nodes, with nodes repeated once for each adjacent edge
+    repeated_nodes=[]
+    # Start adding the other n-m nodes. The first node is m.
+    source=m
+    changed = False
+    while source<n:
+        G.add_edges_from(zip([source]*m,targets))
+
+        # Repeated nodes to have preferential attachment.
+        if not max_d:
+            repeated_nodes = [n for n, d in G.degree(weight='order') for _ in range(d)]
+        else:
+            repeated_nodes = [n for n, d in G.degree(weight='order') if d < max_d for _ in range(d)]
+
+        # Sometimes generate an extra bond, to facilitate loops and such:
+        if changed:
+            m -= 1
+            changed = False
+        if np.random.rand() < p:
+            m += 1
+            changed = True
+
+        # Make targets a set to choose only unique nodes.
+        targets = set()
+        while len(targets) < m:
+            targets.add(np.random.choice(repeated_nodes))
+        source += 1
+    return G

@@ -190,6 +190,8 @@ if __name__ == "__main__":
 
     parser.add_argument('--smiles', dest="smiles", type=str, default=None, help="Directory where smiles files are stored if using smiles method")
 
+    parser.add_argument('--max-degree', dest="max_d", type=int, default=None, help="Max degree of nodes when generating using the barabasi albert method.")
+
     parser.add_argument('--action-size', dest='size', type=float, default=4,
                         help="The amount of arguments to be generated for actions. A larger size means\
                         the precondition of actions becomes larger and thus stricter.")
@@ -206,7 +208,7 @@ if __name__ == "__main__":
     parser.add_argument('-t', '--types', dest='types', type=int, default=TYPES_DEFAULT,
                         help = f"Amount of node types to add to the graphs. Default is {TYPES_DEFAULT}")
 
-    parser.add_argument('-p', dest='p', type=float, default=0.5,
+    parser.add_argument('-p', dest='p', type=float, default=0,
                         help="Chance parameter used by some graph generation methods")
 
     parser.add_argument('-k', dest='k', type=int, default=1,
@@ -262,13 +264,13 @@ if __name__ == "__main__":
     t = -1
 
     if args.same_start:
-        tg = graph.TypedGraph(args.nodes, p=args.p, k=args.k, t=args.types, mode=args.mode, seed=randomgen.randint(0, 65536), type_mode=args.tp_mode, graph_parts = args.graph_parts, normal=args.normal, n_range=args.node_range, smiles_dir=args.smiles)
+        tg = graph.TypedGraph(args.nodes, p=args.p, k=args.k, t=args.types, mode=args.mode, seed=randomgen.randint(0, 65536), type_mode=args.tp_mode, graph_parts = args.graph_parts, normal=args.normal, n_range=args.node_range, smiles_dir=args.smiles, max_d=args.max_d)
         init = nx.Graph(tg.graph)
 
     for j in range(args.prb_amt):
         # If same_start is true, we don't want to generate a new graph each time.
         if not args.same_start:
-            tg = graph.TypedGraph(args.nodes, p=args.p, k=args.k, t=args.types, mode=args.mode, seed=randomgen.randint(0, 65536), type_mode=args.tp_mode, graph_parts = args.graph_parts, normal=args.normal, n_range=args.node_range, smiles_dir=args.smiles)
+            tg = graph.TypedGraph(args.nodes, p=args.p, k=args.k, t=args.types, mode=args.mode, seed=randomgen.randint(0, 65536), type_mode=args.tp_mode, graph_parts = args.graph_parts, normal=args.normal, n_range=args.node_range, smiles_dir=args.smiles, max_d=args.max_d)
             init = nx.Graph(tg.graph)
 
         plan = []
