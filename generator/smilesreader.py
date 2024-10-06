@@ -7,7 +7,7 @@ import pysmiles
 import typing
 import linecache
 
-# If you want to change the distribution of molecule sizes, edit this distribution. Make sure the distribution has the same lenght as the amount of files in your smiles folder.
+# If you want to change the distribution of molecule sizes, edit this distribution. Make sure the distribution has at least as much length as the amount of files in your smiles folder.
 distribution = [0.1] * 10
 
 def create_smiles_graph(smiles_dir, nodes, seed=None, use_distribution = False):
@@ -23,6 +23,7 @@ def create_smiles_graph(smiles_dir, nodes, seed=None, use_distribution = False):
     graph = nx.Graph()
     # Now we know where we can read the smiles lines, choose a molecule from a file untill the graph is big enough.
     n = 0
+    real_dist = np.array(distribution)[:len(files)] / np.sum(distribution[:len(files)])
     while n < nodes:
         if use_distribution:
             file_path = np.random.choice(files, p=distribution)

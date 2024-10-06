@@ -33,7 +33,7 @@ def generate_pddl_domain(actions: typing.List[graph.GraphTransformation], name, 
     out += "node - object\n\t"
     out += ")\n\n"
 
-    out += "(:predicates\n\t(link ?n0 - node ?n1 - node)\n\t(double-link ?n0 - node ?n1 - node)\n\t(triple-link ?n0 - node ?n1 - node)\n\t)\n\n"
+    out += "(:predicates\n\t(link ?n0 - node ?n1 - node)\n\t(double-link ?n0 - node ?n1 - node)\n\t(triple-link ?n0 - node ?n1 - node)\n\t(aromatic-link ?n0 - node ?n1 - node)\n\t)\n\n"
 
     for i, a in enumerate(actions):
         out += to_pddl.graph_transformation_to_pddl_action(a, i)

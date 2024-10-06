@@ -91,6 +91,9 @@ class GraphTransformation:
                     while len(list(filter(lambda x: not x in self.graph_prec.edges, self.graph_post.edges))) < add and k < 1000:
                         k += 1
                         u1, v1, order1 = self.randomgen.choice(list(self.graph_post.edges.data('order')))
+                        # Switching aromatic bonds around is often the same as doing nothing
+                        if order1 == 1.5:
+                            continue
                         u2, v2, order2 = self.randomgen.choice([x for x in list(self.graph_post.edges.data('order')) if x[2] == order1])
                         t = self.randomgen.randint(0,1)
                         # Try random order so both permutations can occur.
