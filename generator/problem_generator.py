@@ -250,6 +250,10 @@ if __name__ == "__main__":
 
     parser.add_argument('--same_start', action="store_true", help="If this flag is enabled, each problem generated will start from the same starting graph.")
 
+    parser.add_argument('--dir_split', action="store_true", help="Whether or not to split every problem into a seperate dir with its own domain file or to output all problems and 1 domain file flatly.")
+
+    parser.add_argument('--use_dist', action="store_true", help="When using smiles, if this is true, use the distribution defined in smilesreader.py to select molecule sizes.")
+
     args = parser.parse_args()
 
     randomgen = random.Random(args.seed)
@@ -259,18 +263,19 @@ if __name__ == "__main__":
         name += f"_{args.name}"
 
     actions = []
+    problems = []
 
     amount_types = args.types - 1
     t = -1
 
     if args.same_start:
-        tg = graph.TypedGraph(args.nodes, p=args.p, k=args.k, t=args.types, mode=args.mode, seed=randomgen.randint(0, 65536), type_mode=args.tp_mode, graph_parts = args.graph_parts, normal=args.normal, n_range=args.node_range, smiles_dir=args.smiles, max_d=args.max_d)
+        tg = graph.TypedGraph(args.nodes, p=args.p, k=args.k, t=args.types, mode=args.mode, seed=randomgen.randint(0, 65536), type_mode=args.tp_mode, graph_parts = args.graph_parts, normal=args.normal, n_range=args.node_range, smiles_dir=args.smiles, max_d=args.max_d, use_distribution=args.use_dist)
         init = nx.Graph(tg.graph)
 
     for j in range(args.prb_amt):
         # If same_start is true, we don't want to generate a new graph each time.
         if not args.same_start:
-            tg = graph.TypedGraph(args.nodes, p=args.p, k=args.k, t=args.types, mode=args.mode, seed=randomgen.randint(0, 65536), type_mode=args.tp_mode, graph_parts = args.graph_parts, normal=args.normal, n_range=args.node_range, smiles_dir=args.smiles, max_d=args.max_d)
+            tg = graph.TypedGraph(args.nodes, p=args.p, k=args.k, t=args.types, mode=args.mode, seed=randomgen.randint(0, 65536), type_mode=args.tp_mode, graph_parts = args.graph_parts, normal=args.normal, n_range=args.node_range, smiles_dir=args.smiles, max_d=args.max_d, use_distribution=args.use_dist)
             init = nx.Graph(tg.graph)
 
         plan = []
@@ -309,16 +314,38 @@ if __name__ == "__main__":
             max_degree = max(list(tg.graph.degree()), key= lambda x: x[1])
             if max_degree[1] > amount_types:
                 amount_types = max_degree[1]
-        file = open(f"p-{j + 1}" + name + ".pddl", 'w')
-        file.write(generate_pddl_problem(init, tg.graph, f"{j + 1}", args.name, degree_mode = (args.tp_mode == "degree")))
-        file.close()
-        if args.plan:
-            file = open(f"plan-{j + 1}" + name + ".plan", 'w')
-            file.write(generate_pddl_plan(plan, tg))
+        if not args.dir_split:
+            file = open(f"p-{j + 1}" + name + ".pddl", 'w')
+            file.write(generate_pddl_problem(init, tg.graph, f"{j + 1}", args.name, degree_mode = (args.tp_mode == "degree")))
             file.close()
+            if args.plan:
+                file = open(f"plan-{j + 1}" + name + ".plan", 'w')
+                file.write(generate_pddl_plan(plan, tg))
+                file.close()
+        else:
+            problems.append([generate_pddl_problem(init, tg.graph, f"{j + 1}", args.name, degree_mode = (args.tp_mode == "degree")), generate_pddl_plan(plan, tg)])
         if args.same_start:
             tg.graph = nx.Graph(init)
 
-    file = open("domain" + name + ".pddl", 'w')
-    file.write(generate_pddl_domain(actions, args.name, amount_types=amount_types + 1, degree_mode = (args.tp_mode == "degree")))
-    file.close()
+    if not args.dir_split:
+        # If we don't split by dir, just write the final domain in the current folder.
+        file = open("domain" + name + ".pddl", 'w')
+        file.write(generate_pddl_domain(actions, args.name, amount_types=amount_types + 1, degree_mode = (args.tp_mode == "degree")))
+        file.close()
+    else:
+        domain = generate_pddl_domain(actions, args.name, amount_types=amount_types + 1, degree_mode = (args.tp_mode == "degree"))
+        for i, problem in enumerate(problems):
+            try:
+                os.mkdir(f"./p-{i+1}{name}/")
+            except FileExistsError:
+                pass
+            file = open(f"./p-{i+1}{name}/p-{i + 1}" + name + ".pddl", 'w')
+            file.write(problem[0])
+            file.close()
+            if args.plan:
+                file = open(f"./p-{i+1}{name}/plan-{i + 1}" + name + ".plan", 'w')
+                file.write(problem[1])
+                file.close()
+            file = open(f"./p-{i+1}{name}/domain.pddl", 'w')
+            file.write(domain)
+            file.close()

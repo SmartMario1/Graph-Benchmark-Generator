@@ -22,12 +22,14 @@ def create_smiles_graph(smiles_dir, nodes, seed=None, use_distribution = False):
 
     graph = nx.Graph()
     # Now we know where we can read the smiles lines, choose a molecule from a file untill the graph is big enough.
-    while len(graph.nodes) < nodes:
+    n = 0
+    while n < nodes:
         if use_distribution:
             file_path = np.random.choice(files, p=distribution)
         else:
             file_path = np.random.choice(files)
 
+        n += files.index(file_path) + 1
         f = open(file_path, 'r')
         i = 0
         line_n = np.random.randint(0, line_counts[files.index(file_path)])
