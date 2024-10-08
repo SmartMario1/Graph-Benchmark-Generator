@@ -2,7 +2,7 @@ import graph
 import networkx as nx
 
 def typed_graph_to_pddl_state(graph: nx.Graph, action = False, inv = False, post = False):
-    order_dict = {1: '', 2: 'double-', 3:'triple-'}
+    order_dict = {1: '', 2: 'double-', 3:'triple-', 1.5:'aromatic-'}
     out = ""
     q = ""
     t = "\t"

@@ -26,7 +26,7 @@ def create_smiles_graph(smiles_dir, nodes, seed=None, use_distribution = False):
     real_dist = np.array(distribution)[:len(files)] / np.sum(distribution[:len(files)])
     while n < nodes:
         if use_distribution:
-            file_path = np.random.choice(files, p=distribution)
+            file_path = np.random.choice(files, p=real_dist)
         else:
             file_path = np.random.choice(files)
 
