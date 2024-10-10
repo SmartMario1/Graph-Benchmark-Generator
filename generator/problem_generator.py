@@ -114,8 +114,8 @@ def generate_sample(args, tg : graph.TypedGraph):
         size = round(randomgen.normalvariate(args.size, args.action_range))
     else:
         size = randomgen.randint(round(args.size), round(args.size + args.action_range))
-    if args.tp_mode == "degree" and size < 3:
-        size = 3
+    if size < args.min_action_size:
+        size = args.min_action_size
     if args.sample_mode == "random-sequential":
         start = randomgen.randint(0, nodes)
         sample = list(range(start, start + size))
