@@ -88,8 +88,14 @@ class GraphTransformation:
                     j = 0
                     k = 0
                     # Keep going untill the amount of changed edges is higher than add, or 1000 tries.
-                    while len(list(filter(lambda x: not x in self.graph_prec.edges, self.graph_post.edges))) < add and k < 1000:
+                    max_change = 0
+                    condition = 0
+                    max_change_graph = self.graph_prec
+                    while condition < add and k < 1000:
                         k += 1
+                        if condition > max_change:
+                            max_change_graph = nx.Graph(self.graph_post)
+                            max_change = condition
                         u1, v1, order1 = self.randomgen.choice(list(self.graph_post.edges.data('order')))
                         # Switching aromatic bonds around is often the same as doing nothing
                         if order1 == 1.5:
@@ -123,6 +129,9 @@ class GraphTransformation:
                                 self.graph_post.add_edge(u1, u2, order = order1)
                                 self.graph_post.add_edge(v1, v2, order = order2)
                                 j += 2
+                        condition = len(list(filter(lambda x: not x in self.graph_prec.edges, self.graph_post.edges)))
+                    if k >= 1000:
+                        self.graph_post = max_change_graph
                     return
                 for i in range(remove):
                     try:
