@@ -294,7 +294,7 @@ if __name__ == "__main__":
                 length = randomgen.randint(round(args.length), round(args.length + args.length_range))
         else:
             length += 1
-            if length > args.length_range:
+            if length > args.length + args.length_range:
                 length = args.length
         i = 0
         sample = generate_sample(args, tg)
